@@ -32,6 +32,26 @@ Set the following environment variables with your API keys:
 - `GEMINI_API_KEY` – used for Gemini
 - `ANTHROPIC_API_KEY` – used for Claude
 
+### Getting API keys
+
+1. **Gemini** – Visit [aistudio.google.com/apikey](https://aistudio.google.com/apikey),
+   create a key, and copy it.
+2. **ChatGPT** – Go to [platform.openai.com/account/api-keys](https://platform.openai.com/account/api-keys)
+   and generate a new secret key.
+3. **Claude** – Create a key in the dashboard at
+   [console.anthropic.com](https://console.anthropic.com).
+
+Add the keys to your shell configuration so they are available every time you run
+the CLI. For example, in `~/.zshrc`:
+
+```shell
+export OPENAI_API_KEY="sk-your-openai-key"
+export GEMINI_API_KEY="your-gemini-key"
+export ANTHROPIC_API_KEY="your-claude-key"
+```
+
+Reload your shell or run `source ~/.zshrc` for the variables to take effect.
+
 Run the CLI with your prompt:
 
 ```bash
