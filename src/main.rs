@@ -25,6 +25,14 @@ trait AiClient {
     async fn send_prompt(&self, prompt: &str) -> Result<String, reqwest::Error>;
 }
 
+/// Format a prompt asking Gemini to summarize the differences between replies.
+fn build_summary_prompt(gpt_reply: &str, gemini_reply: &str, claude_reply: &str) -> String {
+    format!(
+        "Given these model replies:\nChatGPT: {}\n---\nGemini: {}\n---\nClaude: {}\nSummarize the key differences.",
+        gpt_reply, gemini_reply, claude_reply
+    )
+}
+
 /// Client for OpenAI's ChatGPT models.
 struct ChatGpt {
     http: Client,
@@ -219,10 +227,7 @@ async fn run(args: Args) -> Result<(), Box<dyn std::error::Error>> {
     let claude_reply = claude.send_prompt(&args.prompt).await?;
 
     // Summarize differences using Gemini.
-    let summary_prompt = format!(
-        "Given these model replies:\nChatGPT: {}\n---\nGemini: {}\n---\nClaude: {}\nSummarize the key differences.",
-        gpt_reply, gemini_reply, claude_reply
-    );
+    let summary_prompt = build_summary_prompt(&gpt_reply, &gemini_reply, &claude_reply);
     let digest = gemini.send_prompt(&summary_prompt).await?;
 
     println!("{}", digest);
@@ -246,5 +251,33 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         eprintln!("Error: {e}");
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use clap::Parser;
+
+    #[test]
+    fn parse_args_with_log() {
+        let args = Args::parse_from(["cmd", "hello", "--log", "out.txt"]);
+        assert_eq!(args.prompt, "hello");
+        assert_eq!(args.log.as_deref(), Some(std::path::Path::new("out.txt")));
+    }
+
+    #[test]
+    fn parse_args_without_log() {
+        let args = Args::parse_from(["cmd", "hi"]);
+        assert_eq!(args.prompt, "hi");
+        assert!(args.log.is_none());
+    }
+
+    #[test]
+    fn summary_prompt_contains_replies() {
+        let prompt = build_summary_prompt("A", "B", "C");
+        assert!(prompt.contains("ChatGPT: A"));
+        assert!(prompt.contains("Gemini: B"));
+        assert!(prompt.contains("Claude: C"));
+    }
 }
 
