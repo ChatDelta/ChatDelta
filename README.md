@@ -70,6 +70,13 @@ The example above stores the prompt, every model reply, and the final digest int
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines on how to help.
 
+## Website
+
+Documentation is hosted with GitHub Pages from the `docs/` directory. If you own
+`ChatDelta.com`, point the domain's DNS at GitHub and add it as a custom domain
+in the repository settings. The [`docs/CNAME`](docs/CNAME) file already contains
+the domain name so GitHub Pages will serve the site at that address.
+
 ## License
 
 This project is released under the MIT License. See [LICENSE](LICENSE) for details.
