@@ -16,4 +16,4 @@ ChatDelta is an open source command line tool for comparing responses from multi
    OPENAI_API_KEY=... GEMINI_API_KEY=... ANTHROPIC_API_KEY=... ./target/release/chatdelta "Your prompt"
    ```
 
-For full usage details see the [README](../README.md).
+For full usage details see the [README on GitHub](https://github.com/ChatDelta/ChatDelta/blob/main/README.md).
