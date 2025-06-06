@@ -17,4 +17,17 @@ ChatDelta is an open source command line tool for comparing responses from multi
    ```
 4. Your prompt is sent to each API, and then all the responses are fed into Gemini with instructions to summarize the differences.
 
+## Diagram
+
+```mermaid
+graph TD
+  P["Your Prompt"] --> ChatGPT
+  P --> Claude
+  P --> Gemini
+  ChatGPT --> Summarizer["Gemini summarizes differences"]
+  Claude --> Summarizer
+  Gemini --> Summarizer
+  Summarizer --> Output["Digest"]
+```
+
 For full usage details see the [README on GitHub](https://github.com/ChatDelta/ChatDelta/blob/main/README.md).
