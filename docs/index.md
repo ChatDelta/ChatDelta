@@ -31,3 +31,6 @@ graph TD
 ```
 
 For full usage details see the [README on GitHub](https://github.com/ChatDelta/ChatDelta/blob/main/README.md).
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+<script>mermaid.initialize({startOnLoad:true});</script>
