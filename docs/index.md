@@ -18,3 +18,9 @@ ChatDelta is an open source command line tool for comparing responses from multi
 4. Your prompt is sent to each API, and then all the responses are fed into Gemini with instructions to summarize the differences.
 
 For full usage details see the [README on GitHub](https://github.com/ChatDelta/ChatDelta/blob/main/README.md).
+
+## Diagram
+
+Below is a high level flow of how ChatDelta works. The diagram is generated from a Mermaid source file during the CI build.
+
+![ChatDelta flow](assets/diagram.svg)
