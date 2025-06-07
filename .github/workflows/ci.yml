@@ -19,3 +19,7 @@ jobs:
         run: cargo build --verbose
       - name: Run tests
         run: cargo test --verbose
+      - name: Generate diagram
+        run: |
+          npm install -g @mermaid-js/mermaid-cli
+          mmdc -i docs/diagram.mmd -o docs/assets/diagram.svg
