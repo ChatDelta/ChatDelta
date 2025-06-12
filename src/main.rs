@@ -11,11 +11,51 @@ use std::path::PathBuf;
 #[command(version, about = "Query multiple AIs and connect their responses")]
 struct Args {
     /// Prompt to send to the AIs
+    #[arg(required = true)]
     prompt: String,
 
     /// Optional path to log the full interaction
     #[arg(long)]
     log: Option<PathBuf>,
+}
+
+impl Args {
+    pub fn validate(&self) -> Result<(), String> {
+        if self.prompt.is_empty() {
+            return Err("Prompt cannot be empty".to_string());
+        }
+        Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_args_parsing() {
+        // Test basic argument parsing
+        let args = Args::try_parse_from(["chatdelta", "Hello, world!"])
+            .expect("Failed to parse basic arguments");
+        assert_eq!(args.prompt, "Hello, world!");
+        assert!(args.log.is_none());
+        args.validate().expect("Valid arguments should pass validation");
+
+        // Test with log file path
+        let args = Args::try_parse_from(["chatdelta", "Hello, world!", "--log", "interaction.log"])
+            .expect("Failed to parse arguments with log path");
+        assert_eq!(args.prompt, "Hello, world!");
+        assert_eq!(args.log.clone().unwrap().to_str().unwrap(), "interaction.log");
+        args.validate().expect("Valid arguments should pass validation");
+
+        // Test with empty prompt (should fail)
+        let args = Args::try_parse_from(["chatdelta", ""])
+            .expect("Empty prompt should be accepted by clap but fail validation");
+        assert!(args.validate().is_err());
+
+        // Test with only program name (should fail)
+        assert!(Args::try_parse_from(["chatdelta"]).is_err());
+    }
 }
 
 /// Common trait implemented by all AI clients.
