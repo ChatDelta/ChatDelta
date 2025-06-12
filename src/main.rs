@@ -8,7 +8,7 @@ use std::path::PathBuf;
 
 /// Command line arguments for chatdelta.
 #[derive(Parser, Debug)]
-#[command(version, about = "Query multiple AIs and compare their answers")]
+#[command(version, about = "Query multiple AIs and connect their responses")]
 struct Args {
     /// Prompt to send to the AIs
     prompt: String,
