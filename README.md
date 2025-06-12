@@ -1,11 +1,11 @@
 # ChatDelta
 
-ChatDelta is a command line tool for connecting multiple AI APIs. It sends your prompt to ChatGPT, Gemini, and Claude, then asks Gemini to summarize the differences. The goal is to help you quickly see how various LLMs respond to the same question.
+ChatDelta is a command line tool for connecting multiple AI APIs. It sends your prompt to ChatGPT, Gemini, and Claude, then asks Gemini to generate a concise summary of all the responses. The goal is to help you quickly connect with different LLMs using a single command.
 
 ## Features
 
 - Query ChatGPT, Gemini, and Claude with a single command
-- Summarize the differences between responses
+- Summarize the responses from each API
 - Optional logging of prompts and replies to a text file for later review
 - Simple configuration through environment variables
 - Written in idiomatic Rust with plentiful comments to encourage new contributors
@@ -63,7 +63,7 @@ The example above stores the prompt, every model reply, and the final digest int
 ## How It Works
 
 1. Your prompt is sent to ChatGPT, Gemini, and Claude in parallel.
-2. Their replies are fed to Gemini with instructions to highlight the differences.
+2. Their replies are fed to Gemini for a combined summary of the responses.
 3. The digest from Gemini is printed to the terminal and optionally written to a file.
 
 ## Contributing
