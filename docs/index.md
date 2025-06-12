@@ -1,6 +1,6 @@
 # ChatDelta
 
-ChatDelta is an open source command line tool for comparing responses from multiple AI models. This site hosts the documentation and quick start guide.
+ChatDelta is an open source command line tool for connecting multiple AI APIs. This site hosts the documentation and quick start guide.
 
 ## Getting Started
 
