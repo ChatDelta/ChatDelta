@@ -30,4 +30,4 @@ jobs:
       - name: Generate diagram
         run: |
           npm install -g @mermaid-js/mermaid-cli
-          mmdc -i docs/diagram.mmd -o docs/assets/diagram.svg
+          mmdc -i docs/diagram.mmd -o docs/assets/diagram.svg --no-sandbox
