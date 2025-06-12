@@ -1,6 +1,6 @@
 # ChatDelta
 
-ChatDelta is a command line tool for comparing answers from multiple AI models. It sends your prompt to ChatGPT, Gemini, and Claude, then asks Gemini to summarize the differences. The goal is to help you quickly see how various LLMs respond to the same question.
+ChatDelta is a command line tool for connecting multiple AI APIs. It sends your prompt to ChatGPT, Gemini, and Claude, then asks Gemini to summarize the differences. The goal is to help you quickly see how various LLMs respond to the same question.
 
 ## Features
 
