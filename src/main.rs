@@ -98,7 +98,7 @@ impl AiClient for ChatGpt {
         }
 
         let body = Request {
-            model: "gpt-3.5-turbo",
+            model: "gpt-4o",
             messages: vec![Message { role: "user", content: prompt }],
         };
 
@@ -166,7 +166,7 @@ impl AiClient for Gemini {
             }],
         };
 
-        let url = format!("https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key={}", self.key);
+        let url = format!("https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro-latest:generateContent?key={}", self.key);
 
         let resp = self
             .http
@@ -220,7 +220,7 @@ impl AiClient for Claude {
         }
 
         let body = Request {
-            model: "claude-3-opus-20240229",
+            model: "claude-3-opus-latest",
             messages: vec![Message { role: "user", content: prompt }],
             max_tokens: 1024,
         };
