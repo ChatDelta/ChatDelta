@@ -62,9 +62,11 @@ The example above stores the prompt, every model reply, and the final digest int
 
 ## How It Works
 
-1. Your prompt is sent to ChatGPT, Gemini, and Claude in parallel.
+1. Your prompt is sent to ChatGPT, Gemini, and Claude **in parallel** for faster responses.
 2. Their replies are fed to Gemini for a combined summary of the responses.
 3. The digest from Gemini is printed to the terminal and optionally written to a file.
+4. Progress indicators show the status of each step.
+5. Detailed error messages help troubleshoot API issues.
 
 ## Contributing
 

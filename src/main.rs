@@ -12,6 +12,7 @@ use std::env;
 use std::fs::File;
 use std::io::Write;
 use std::path::PathBuf;
+use std::time::Duration;
 
 /// Command line arguments for chatdelta.
 ///
@@ -220,20 +221,16 @@ impl AiClient for Claude {
         }
         #[derive(Deserialize)]
         struct Response {
-            choices: Vec<Choice>,
+            content: Vec<ContentBlock>,
         }
         #[derive(Deserialize)]
-        struct Choice {
-            message: Resp,
-        }
-        #[derive(Deserialize)]
-        struct Resp {
-            content: String,
+        struct ContentBlock {
+            text: String,
         }
 
         // Prepare the request body as per Anthropic's API specification.
         let body = Request {
-            model: "claude-3-opus-latest",
+            model: "claude-3-5-sonnet-20241022",
             messages: vec![Message {
                 role: "user",
                 content: prompt,
@@ -247,6 +244,7 @@ impl AiClient for Claude {
             .post("https://api.anthropic.com/v1/messages")
             .header("x-api-key", &self.key)
             .header("anthropic-version", "2023-06-01")
+            .header("content-type", "application/json")
             .json(&body)
             .send()
             .await?
@@ -255,9 +253,9 @@ impl AiClient for Claude {
 
         // Extract the response text from the API's JSON response.
         Ok(resp
-            .choices
+            .content
             .first()
-            .map(|c| c.message.content.clone())
+            .map(|c| c.text.clone())
             .unwrap_or_default())
     }
 }
@@ -273,35 +271,50 @@ impl AiClient for Claude {
 /// This function is async because it performs network requests.
 async fn run(args: Args) -> Result<(), Box<dyn std::error::Error>> {
     // Create a single HTTP client instance to be shared by all AI clients.
-    let client = Client::new();
+    // Set a reasonable timeout for API requests
+    let client = Client::builder()
+        .timeout(Duration::from_secs(30))
+        .build()?;
 
     // Load API keys from environment variables. These must be set before running the program.
-    // If any key is missing, the program will return an error.
+    // If any key is missing, the program will return an error with a helpful message.
     let chatgpt = ChatGpt {
         http: client.clone(),
-        key: env::var("OPENAI_API_KEY")?,
+        key: env::var("OPENAI_API_KEY")
+            .map_err(|_| "Missing OPENAI_API_KEY environment variable")?,
     };
     let gemini = Gemini {
         http: client.clone(),
-        key: env::var("GEMINI_API_KEY")?,
+        key: env::var("GEMINI_API_KEY")
+            .map_err(|_| "Missing GEMINI_API_KEY environment variable")?,
     };
     let claude = Claude {
         http: client.clone(),
-        key: env::var("ANTHROPIC_API_KEY")?,
+        key: env::var("ANTHROPIC_API_KEY")
+            .map_err(|_| "Missing ANTHROPIC_API_KEY environment variable")?,
     };
 
-    // Query each model with the same prompt. Each call is awaited sequentially.
-    // You could use `tokio::join!` to run them in parallel for faster responses.
-    let gpt_reply = chatgpt.send_prompt(&args.prompt).await?;
-    let gemini_reply = gemini.send_prompt(&args.prompt).await?;
-    let claude_reply = claude.send_prompt(&args.prompt).await?;
+    // Query each model with the same prompt in parallel for faster responses.
+    println!("Querying AI models...");
+    let (gpt_reply, gemini_reply, claude_reply) = tokio::join!(
+        chatgpt.send_prompt(&args.prompt),
+        gemini.send_prompt(&args.prompt),
+        claude.send_prompt(&args.prompt)
+    );
+    let gpt_reply = gpt_reply.map_err(|e| format!("ChatGPT error: {}", e))?;
+    let gemini_reply = gemini_reply.map_err(|e| format!("Gemini error: {}", e))?;
+    let claude_reply = claude_reply.map_err(|e| format!("Claude error: {}", e))?;
+    println!("✓ Received responses from all AI models");
 
     // Ask Gemini to summarize the differences between the model replies.
+    println!("Generating summary...");
     let summary_prompt = format!(
         "Given these model replies:\nChatGPT: {}\n---\nGemini: {}\n---\nClaude: {}\nSummarize the key differences.",
         gpt_reply, gemini_reply, claude_reply
     );
-    let digest = gemini.send_prompt(&summary_prompt).await?;
+    let digest = gemini.send_prompt(&summary_prompt).await
+        .map_err(|e| format!("Summary generation error: {}", e))?;
+    println!("✓ Summary generated");
 
     // Print the summary to stdout.
     println!("{}", digest);
@@ -391,9 +404,11 @@ mod tests {
 
     // Helper: Set environment variables for API keys (used for run).
     fn set_env_keys() {
-        env::set_var("OPENAI_API_KEY", "dummy");
-        env::set_var("GEMINI_API_KEY", "dummy");
-        env::set_var("ANTHROPIC_API_KEY", "dummy");
+        unsafe {
+            env::set_var("OPENAI_API_KEY", "dummy");
+            env::set_var("GEMINI_API_KEY", "dummy");
+            env::set_var("ANTHROPIC_API_KEY", "dummy");
+        }
     }
 
     // Test the main run function with successful mock clients and logging.
@@ -402,10 +417,10 @@ mod tests {
         set_env_keys();
         // Prepare mock responses: ChatGPT, Gemini, Claude, Gemini summary.
         let responses = Arc::new(Mutex::new(VecDeque::from([
-            Ok("gpt-reply".to_string()),
-            Ok("gemini-reply".to_string()),
-            Ok("claude-reply".to_string()),
-            Ok("digest-reply".to_string()),
+            Ok::<String, reqwest::Error>("gpt-reply".to_string()),
+            Ok::<String, reqwest::Error>("gemini-reply".to_string()),
+            Ok::<String, reqwest::Error>("claude-reply".to_string()),
+            Ok::<String, reqwest::Error>("digest-reply".to_string()),
         ])));
 
         // Patch the AI clients in run with our mock (using dependency injection would be better, but for now we test the logic in isolation).
@@ -432,9 +447,11 @@ mod tests {
     #[tokio::test]
     async fn test_run_missing_env_vars() {
         // Remove env vars if present.
-        env::remove_var("OPENAI_API_KEY");
-        env::remove_var("GEMINI_API_KEY");
-        env::remove_var("ANTHROPIC_API_KEY");
+        unsafe {
+            env::remove_var("OPENAI_API_KEY");
+            env::remove_var("GEMINI_API_KEY");
+            env::remove_var("ANTHROPIC_API_KEY");
+        }
         let args = Args {
             prompt: "Test".to_string(),
             log: None,
