@@ -1,7 +1,21 @@
 [package]
 name = "chatdelta"
 version = "0.1.0"
-edition = "2024"
+edition = "2021"
+description = "A unified Rust library for connecting to multiple AI APIs (OpenAI, Google Gemini, Anthropic Claude)"
+license = "MIT"
+repository = "https://github.com/ChatDelta/chatdelta"
+keywords = ["ai", "openai", "gemini", "claude", "api"]
+categories = ["api-bindings", "web-programming::http-client"]
+
+# Enable building both as a library and binary
+[[bin]]
+name = "chatdelta"
+path = "src/main.rs"
+
+[lib]
+name = "chatdelta"
+path = "src/lib.rs"
 
 [dependencies]
 clap = { version = "4", features = ["derive"] }
