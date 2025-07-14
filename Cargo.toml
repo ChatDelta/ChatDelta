@@ -1,8 +1,8 @@
 [package]
-name = "chatdelta"
+name = "chatdelta-base"
 version = "0.1.0"
 edition = "2021"
-description = "A unified Rust library for connecting to multiple AI APIs (OpenAI, Google Gemini, Anthropic Claude)"
+description = "ChatDelta base repository - includes both CLI and library components"
 license = "MIT"
 repository = "https://github.com/ChatDelta/chatdelta"
 keywords = ["ai", "openai", "gemini", "claude", "api"]
@@ -18,10 +18,11 @@ name = "chatdelta"
 path = "src/lib.rs"
 
 [dependencies]
+chatdelta = { path = "../chatdelta-rs" }
 clap = { version = "4", features = ["derive"] }
-reqwest = { version = "0.11", features = ["json", "rustls-tls"] }
+tokio = { version = "1", features = ["full"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
-tokio = { version = "1", features = ["full"] }
-async-trait = "0.1"
-futures = "0.3"
+# TUI dependencies for ncurses-style terminal UI
+crossterm = "0.27"
+tui = { version = "0.19", default-features = false, features = ["crossterm"] }
