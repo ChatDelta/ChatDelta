@@ -1,14 +1,22 @@
 # ChatDelta
 
-ChatDelta is a command line tool for connecting multiple AI APIs. It sends your prompt to ChatGPT, Gemini, and Claude, then asks Gemini to generate a concise summary of all the responses. The goal is to help you quickly connect with different LLMs using a single command.
+ChatDelta is a terminal user interface (TUI) application for chatting with multiple AI providers side by side. When launched it opens a full screen interface with three columns:
+
+- **OpenAI**
+- **Gemini**
+- **Claude**
+
+Each column shows the conversation with its provider. Columns are greyed out if the required API key is not set.
+
+At the bottom of the screen is a shared input box. Type a message and press <kbd>Enter</kbd> to send it to all enabled providers. Replies appear asynchronously in their respective columns. Press <kbd>Esc</kbd> or `q` to quit.
 
 ## Features
 
-- Query ChatGPT, Gemini, and Claude with a single command
-- Summarize the responses from each API
-- Optional logging of prompts and replies to a text file for later review
-- Simple configuration through environment variables
-- Written in idiomatic Rust with plentiful comments to encourage new contributors
+- Side-by-side chat with OpenAI, Gemini and Claude
+- Columns automatically disable when the API key is missing
+- Shared input so you can ask all providers the same question
+- Asynchronous responses update the display while each AI thinks
+- Written in Rust using `tui` and `crossterm`
 
 ## Installation
 
@@ -26,17 +34,17 @@ ChatDelta is a command line tool for connecting multiple AI APIs. It sends your 
 
 ## Usage
 
-Set the following environment variables with your API keys:
+Set your API keys as environment variables before running the program:
 
-- `CHATGPT_API_KEY` – used for ChatGPT
-- `GEMINI_API_KEY` – used for Gemini
-- `CLAUDE_API_KEY` – used for Claude
+- `OPENAI_API_KEY` – OpenAI
+- `GEMINI_API_KEY` – Gemini
+- `ANTHROPIC_API_KEY` – Claude
 
 ### Getting API keys
 
 1. **Gemini** – Visit [aistudio.google.com/apikey](https://aistudio.google.com/apikey),
    create a key, and copy it.
-2. **ChatGPT** – Go to [platform.openai.com/account/api-keys](https://platform.openai.com/account/api-keys)
+2. **OpenAI** – Go to [platform.openai.com/account/api-keys](https://platform.openai.com/account/api-keys)
    and generate a new secret key.
 3. **Claude** – Create a key in the dashboard at
    [console.anthropic.com](https://console.anthropic.com).
@@ -45,39 +53,26 @@ Add the keys to your shell configuration so they are available every time you ru
 the CLI. For example, in `~/.zshrc`:
 
 ```shell
-export CHATGPT_API_KEY="sk-your-openai-key"
+export OPENAI_API_KEY="sk-your-openai-key"
 export GEMINI_API_KEY="your-gemini-key"
-export CLAUDE_API_KEY="your-claude-key"
+export ANTHROPIC_API_KEY="your-claude-key"
 ```
 
 Reload your shell or run `source ~/.zshrc` for the variables to take effect.
 
-Run the CLI with your prompt:
+Launch the TUI:
 
 ```bash
-./chatdelta "Explain quantum computing" --log session.txt
+OPENAI_API_KEY=... GEMINI_API_KEY=... ANTHROPIC_API_KEY=... ./target/release/chatdelta
 ```
 
-The example above stores the prompt, every model reply, and the final digest into `session.txt`.
+If a key is missing, the corresponding column is dimmed and instructs you to set the variable.
 
-## How It Works
-
-1. Your prompt is sent to ChatGPT, Gemini, and Claude **in parallel** for faster responses.
-2. Their replies are fed to Gemini for a combined summary of the responses.
-3. The digest from Gemini is printed to the terminal and optionally written to a file.
-4. Progress indicators show the status of each step.
-5. Detailed error messages help troubleshoot API issues.
+Type your prompt in the input box and press <kbd>Enter</kbd> to send it. Press <kbd>Esc</kbd> or `q` to exit the interface.
 
 ## Contributing
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines on how to help.
-
-## Website
-
-Documentation is hosted with GitHub Pages from the `docs/` directory. If you own
-`ChatDelta.com`, point the domain's DNS at GitHub and add it as a custom domain
-in the repository settings. The [`docs/CNAME`](docs/CNAME) file already contains
-the domain name so GitHub Pages will serve the site at that address.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 
 ## License
 
