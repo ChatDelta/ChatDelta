@@ -28,9 +28,9 @@ ChatDelta is a command line tool for connecting multiple AI APIs. It sends your 
 
 Set the following environment variables with your API keys:
 
-- `OPENAI_API_KEY` – used for ChatGPT
+- `CHATGPT_API_KEY` – used for ChatGPT
 - `GEMINI_API_KEY` – used for Gemini
-- `ANTHROPIC_API_KEY` – used for Claude
+- `CLAUDE_API_KEY` – used for Claude
 
 ### Getting API keys
 
@@ -45,9 +45,9 @@ Add the keys to your shell configuration so they are available every time you ru
 the CLI. For example, in `~/.zshrc`:
 
 ```shell
-export OPENAI_API_KEY="sk-your-openai-key"
+export CHATGPT_API_KEY="sk-your-openai-key"
 export GEMINI_API_KEY="your-gemini-key"
-export ANTHROPIC_API_KEY="your-claude-key"
+export CLAUDE_API_KEY="your-claude-key"
 ```
 
 Reload your shell or run `source ~/.zshrc` for the variables to take effect.

@@ -13,7 +13,7 @@ ChatDelta is an open source command line tool for connecting multiple AI APIs. T
    ```
 3. Set your API keys as environment variables and run the CLI:
    ```bash
-   OPENAI_API_KEY=... GEMINI_API_KEY=... ANTHROPIC_API_KEY=... ./target/release/chatdelta "Your prompt"
+   CHATGPT_API_KEY=... GEMINI_API_KEY=... CLAUDE_API_KEY=... ./target/release/chatdelta "Your prompt"
    ```
 4. Your prompt is sent to each API, and then all the responses are fed into Gemini for a combined summary.
 

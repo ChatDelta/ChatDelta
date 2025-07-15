@@ -40,7 +40,7 @@ impl AppState {
         let mut providers = Vec::new();
         let config = ClientConfig::default();
         
-        for &name in ["OpenAI", "Gemini", "Claude"].iter() {
+        for &name in ["ChatGPT", "Gemini", "Claude"].iter() {
             let state = *provider_states.get(name).unwrap_or(&ProviderState::Disabled);
             let client = if state == ProviderState::Enabled {
                 Self::create_provider_client(name, &config)
@@ -63,9 +63,9 @@ impl AppState {
     
     fn create_provider_client(name: &str, config: &ClientConfig) -> Option<Box<dyn AiClient>> {
         let (env_var, provider_name, model) = match name {
-            "OpenAI" => ("OPENAI_API_KEY", "openai", "gpt-4o"),
+            "ChatGPT" => ("CHATGPT_API_KEY", "openai", "gpt-4o"),
             "Gemini" => ("GEMINI_API_KEY", "gemini", "gemini-1.5-pro"),
-            "Claude" => ("ANTHROPIC_API_KEY", "claude", "claude-3-5-sonnet-20241022"),
+            "Claude" => ("CLAUDE_API_KEY", "claude", "claude-3-5-sonnet-20241022"),
             _ => return None,
         };
         
