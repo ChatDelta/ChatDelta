@@ -8,14 +8,10 @@ repository = "https://github.com/ChatDelta/chatdelta"
 keywords = ["ai", "openai", "gemini", "claude", "api"]
 categories = ["api-bindings", "web-programming::http-client"]
 
-# Enable building both as a library and binary
+# TUI binary
 [[bin]]
 name = "chatdelta"
 path = "src/main.rs"
-
-[lib]
-name = "chatdelta"
-path = "src/lib.rs"
 
 [dependencies]
 chatdelta = { path = "../chatdelta-rs" }
