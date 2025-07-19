@@ -13,8 +13,12 @@ categories = ["api-bindings", "web-programming::http-client"]
 name = "chatdelta"
 path = "src/main.rs"
 
+[lib]
+name = "chatdelta_base"
+path = "src/lib.rs"
+
 [dependencies]
-chatdelta = { path = "../chatdelta-rs" }
+chatdelta = { path = "chatdelta-rs" }
 clap = { version = "4", features = ["derive"] }
 tokio = { version = "1", features = ["full"] }
 serde = { version = "1", features = ["derive"] }
