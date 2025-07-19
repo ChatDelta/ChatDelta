@@ -50,6 +50,14 @@ If a key is missing, the corresponding column is dimmed and instructs you to set
 
 Type your prompt in the input box and press <kbd>Enter</kbd> to send it. Press <kbd>Esc</kbd> or `q` to exit the interface.
 
+## Testing
+
+Run the automated tests with Cargo:
+
+```bash
+cargo test
+```
+
 ## Contributing
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.

@@ -2,8 +2,7 @@
 //!
 //! A command-line tool for querying multiple AI APIs and summarizing their responses.
 
-mod tui;
-use tui::{run_tui, ProviderState};
+use chatdelta_base::tui::{run_tui, ProviderState};
 use std::collections::HashMap;
 
 #[tokio::main]
