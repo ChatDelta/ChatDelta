@@ -79,13 +79,13 @@ impl AppState {
     fn create_welcome_message(name: &str) -> String {
         match name {
             "ChatGPT" => {
-                "🤖 Welcome to ChatGPT!\n\n🧠 Model: GPT-4o\n🏢 Provider: OpenAI\n\n✨ Ready to assist with your queries!\nI excel at general knowledge, coding, writing, and analysis.\n\n💡 Pro tip: I can help with complex reasoning tasks!"
+                "🤖 Welcome to ChatGPT!\n\n🧠 Model: GPT-4o\n🏢 Provider: OpenAI\n\n✨ Ready to assist with your queries!\nI excel at general knowledge, coding, writing, and analysis."
             },
             "Gemini" => {
-                "🌟 Welcome to Gemini!\n\n🚀 Model: Gemini-1.5-Pro\n🏢 Provider: Google\n\n🎯 Ready for action!\nI'm great at multimodal tasks, long context understanding, and creative problem-solving.\n\n🔍 Fun fact: I can analyze images, code, and vast amounts of text!"
+                "🌟 Welcome to Gemini!\n\n🚀 Model: Gemini-1.5-Pro\n🏢 Provider: Google\n\n🎯 Ready for action!\nI'm great at multimodal tasks, long context understanding, and creative problem-solving."
             },
             "Claude" => {
-                "🎭 Welcome to Claude!\n\n🧬 Model: Claude-3.5-Sonnet\n🏢 Provider: Anthropic\n\n👋 Hello there!\nI'm designed to be helpful, harmless, and honest. I excel at analysis, writing, coding, and thoughtful conversation.\n\n📚 I love diving deep into complex topics!"
+                "🎭 Welcome to Claude!\n\n🧬 Model: Claude-3.5-Sonnet\n🏢 Provider: Anthropic\n\n👋 Hello there!\nI'm designed to be helpful, harmless, and honest. I excel at analysis, writing, coding, and thoughtful conversation."
             },
             _ => "🤖 Welcome to AI Chat!\n\nReady to help with your questions!"
         }.to_string()
