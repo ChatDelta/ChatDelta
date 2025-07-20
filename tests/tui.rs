@@ -4,7 +4,7 @@ use chatdelta_base::tui::{AppState, ProviderState};
 #[tokio::test]
 async fn test_app_state_new() {
     let mut states = HashMap::new();
-    states.insert("OpenAI", ProviderState::Enabled);
+    states.insert("ChatGPT", ProviderState::Enabled);
     states.insert("Gemini", ProviderState::Disabled);
     states.insert("Claude", ProviderState::Enabled);
 

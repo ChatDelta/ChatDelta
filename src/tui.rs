@@ -33,6 +33,8 @@ pub struct Provider {
 pub struct AppState {
     pub providers: Vec<Provider>,
     pub shared_input: String,
+    pub selected_column: usize,
+    pub scroll_positions: Vec<usize>,
 }
 
 impl AppState {
@@ -55,9 +57,12 @@ impl AppState {
                 client,
             });
         }
+        let scroll_positions = vec![0; providers.len()];
         Self { 
             providers, 
             shared_input: String::new(),
+            selected_column: 0,
+            scroll_positions,
         }
     }
     
@@ -115,6 +120,37 @@ impl AppState {
             }
         }
     }
+    
+    pub fn select_previous_column(&mut self) {
+        if self.selected_column > 0 {
+            self.selected_column -= 1;
+        }
+    }
+    
+    pub fn select_next_column(&mut self) {
+        if self.selected_column < self.providers.len() - 1 {
+            self.selected_column += 1;
+        }
+    }
+    
+    pub fn scroll_up(&mut self) {
+        if let Some(scroll_pos) = self.scroll_positions.get_mut(self.selected_column) {
+            if *scroll_pos > 0 {
+                *scroll_pos -= 1;
+            }
+        }
+    }
+    
+    pub fn scroll_down(&mut self) {
+        if let Some(scroll_pos) = self.scroll_positions.get_mut(self.selected_column) {
+            if let Some(provider) = self.providers.get(self.selected_column) {
+                let max_scroll = provider.chat_history.len().saturating_sub(1);
+                if *scroll_pos < max_scroll {
+                    *scroll_pos += 1;
+                }
+            }
+        }
+    }
 }
 
 pub async fn run_tui(provider_states: HashMap<&'static str, ProviderState>) -> io::Result<()> {
@@ -152,19 +188,37 @@ pub async fn run_tui(provider_states: HashMap<&'static str, ProviderState>) -> i
 
             // Render provider columns
             for (i, provider) in app.providers.iter().enumerate() {
+                let is_selected = i == app.selected_column;
+                let title = if is_selected {
+                    format!("► {} ◄", provider.name)
+                } else {
+                    provider.name.to_string()
+                };
+                
                 let block = Block::default()
                     .title(Span::styled(
-                        provider.name,
+                        title,
                         Style::default().fg(if provider.state == ProviderState::Enabled {
-                            Color::Cyan
+                            if is_selected { Color::Yellow } else { Color::Cyan }
                         } else {
                             Color::DarkGray
                         }),
                     ))
-                    .borders(Borders::ALL);
+                    .borders(Borders::ALL)
+                    .border_style(if is_selected {
+                        Style::default().fg(Color::Yellow)
+                    } else {
+                        Style::default()
+                    });
 
                 let chat = if provider.state == ProviderState::Enabled {
-                    provider.chat_history.join("\n\n")
+                    let scroll_pos = app.scroll_positions.get(i).copied().unwrap_or(0);
+                    let visible_lines: Vec<&str> = provider.chat_history
+                        .iter()
+                        .flat_map(|msg| msg.lines())
+                        .skip(scroll_pos)
+                        .collect();
+                    visible_lines.join("\n")
                 } else {
                     "API key missing. Set environment variable to enable.".to_string()
                 };
@@ -182,7 +236,7 @@ pub async fn run_tui(provider_states: HashMap<&'static str, ProviderState>) -> i
             
             // Render shared input box
             let input_block = Block::default()
-                .title("Shared Input (Enter to send to all active providers, Esc/q to quit)")
+                .title("Shared Input (Enter: send, ←→: select column, ↑↓: scroll, Esc/q: quit)")
                 .borders(Borders::ALL)
                 .border_style(Style::default().fg(Color::Yellow));
             
@@ -211,6 +265,18 @@ pub async fn run_tui(provider_states: HashMap<&'static str, ProviderState>) -> i
                         execute!(terminal.backend_mut(), cursor::Show)?;
                         terminal.show_cursor()?;
                         break;
+                    }
+                    KeyCode::Left => {
+                        app.select_previous_column();
+                    }
+                    KeyCode::Right => {
+                        app.select_next_column();
+                    }
+                    KeyCode::Up => {
+                        app.scroll_up();
+                    }
+                    KeyCode::Down => {
+                        app.scroll_down();
                     }
                     KeyCode::Char(c) => {
                         app.shared_input.push(c);
