@@ -23,6 +23,12 @@ pub enum ProviderState {
     Disabled,
 }
 
+#[derive(Debug, Clone)]
+pub enum ResponseType {
+    Provider(usize, String),  // (provider_index, response)
+    Delta(String),            // delta analysis
+}
+
 pub struct Provider {
     pub name: &'static str,
     pub state: ProviderState,
@@ -35,6 +41,8 @@ pub struct AppState {
     pub shared_input: String,
     pub selected_column: usize,
     pub scroll_positions: Vec<usize>,
+    pub delta_text: String,
+    pub show_delta: bool,
 }
 
 impl AppState {
@@ -63,6 +71,8 @@ impl AppState {
             shared_input: String::new(),
             selected_column: 0,
             scroll_positions,
+            delta_text: String::new(),
+            show_delta: false,
         }
     }
     
@@ -81,7 +91,7 @@ impl AppState {
         }
     }
     
-    pub fn send_to_active_providers(&mut self, prompt: &str, tx: mpsc::UnboundedSender<(usize, String)>) {
+    pub fn send_to_active_providers(&mut self, prompt: &str, tx: mpsc::UnboundedSender<ResponseType>) {
         let prompt = prompt.to_string();
         for (idx, provider) in self.providers.iter_mut().enumerate() {
             if let Some(_client) = &provider.client {
@@ -102,7 +112,7 @@ impl AppState {
                         };
                         
                         // Send result back
-                        if tx_clone.send((idx, response)).is_err() {
+                        if tx_clone.send(ResponseType::Provider(idx, response)).is_err() {
                             eprintln!("Failed to send response");
                         }
                     });
@@ -119,6 +129,89 @@ impl AppState {
                 *last = format!("{}: {}", provider_name, response);
             }
         }
+        
+        // Note: Delta generation will be triggered from main loop after all responses are received
+    }
+    
+    
+    pub fn generate_delta_with_channel(&mut self, tx: mpsc::UnboundedSender<ResponseType>) {
+        // Check if all enabled providers have recent responses (not "Thinking...")
+        let all_responded = self.providers
+            .iter()
+            .filter(|p| p.state == ProviderState::Enabled)
+            .all(|p| {
+                p.chat_history.last()
+                    .map(|msg| !msg.contains("Thinking..."))
+                    .unwrap_or(false)
+            });
+            
+        if !all_responded {
+            return;
+        }
+        
+        self.generate_delta_internal(tx);
+    }
+    
+    fn generate_delta_internal(&mut self, tx: mpsc::UnboundedSender<ResponseType>) {
+        // Get the latest responses from all enabled providers
+        let responses: Vec<(String, String)> = self.providers
+            .iter()
+            .filter(|p| p.state == ProviderState::Enabled)
+            .filter_map(|p| {
+                p.chat_history.last().and_then(|msg| {
+                    if let Some(colon_pos) = msg.find(": ") {
+                        let response = &msg[colon_pos + 2..];
+                        Some((p.name.to_string(), response.to_string()))
+                    } else {
+                        None
+                    }
+                })
+            })
+            .collect();
+            
+        if responses.len() >= 2 {
+            // Create a Gemini client for delta analysis
+            let config = ClientConfig::default();
+            if let Some(gemini_client) = Self::create_provider_client("Gemini", &config) {
+                let responses_clone = responses.clone();
+                
+                // Create async task for delta generation
+                tokio::spawn(async move {
+                    let prompt = Self::create_delta_prompt(&responses_clone);
+                    match gemini_client.send_prompt(&prompt).await {
+                        Ok(delta) => {
+                            if tx.send(ResponseType::Delta(delta)).is_err() {
+                                eprintln!("Failed to send delta response");
+                            }
+                        }
+                        Err(e) => {
+                            let error_msg = format!("Error generating differences: {}", e);
+                            if tx.send(ResponseType::Delta(error_msg)).is_err() {
+                                eprintln!("Failed to send delta error");
+                            }
+                        }
+                    }
+                });
+            }
+            
+            self.show_delta = true;
+            self.delta_text = "Generating differences summary...".to_string();
+        }
+    }
+    
+    fn create_delta_prompt(responses: &[(String, String)]) -> String {
+        let mut prompt = String::from("Please analyze the following AI responses to the same question and summarize the key differences between them. Focus on factual differences, different approaches, or varying perspectives. Be concise but thorough:\n\n");
+        
+        for (provider, response) in responses {
+            prompt.push_str(&format!("**{}:**\n{}\n\n", provider, response));
+        }
+        
+        prompt.push_str("**Summary of key differences:**");
+        prompt
+    }
+    
+    pub fn handle_delta_response(&mut self, delta: String) {
+        self.delta_text = delta;
     }
     
     pub fn select_previous_column(&mut self) {
@@ -164,17 +257,28 @@ pub async fn run_tui(provider_states: HashMap<&'static str, ProviderState>) -> i
     let mut app = AppState::new(provider_states);
     
     // Create channel for async responses
-    let (tx, mut rx) = mpsc::unbounded_channel::<(usize, String)>();
+    let (tx, mut rx) = mpsc::unbounded_channel::<ResponseType>();
     
     loop {
         terminal.draw(|f| {
             let size = f.size();
             
-            // Split into main area and input area
-            let main_chunks = Layout::default()
-                .direction(Direction::Vertical)
-                .constraints([Constraint::Min(0), Constraint::Length(3)])
-                .split(size);
+            // Split into main area, delta area (if shown), and input area
+            let main_chunks = if app.show_delta {
+                Layout::default()
+                    .direction(Direction::Vertical)
+                    .constraints([
+                        Constraint::Min(0),           // Main provider columns
+                        Constraint::Length(6),        // Delta field
+                        Constraint::Length(3)         // Input field
+                    ])
+                    .split(size)
+            } else {
+                Layout::default()
+                    .direction(Direction::Vertical)
+                    .constraints([Constraint::Min(0), Constraint::Length(3)])
+                    .split(size)
+            };
             
             // Split main area into 3 columns
             let provider_chunks = Layout::default()
@@ -234,6 +338,21 @@ pub async fn run_tui(provider_states: HashMap<&'static str, ProviderState>) -> i
                 f.render_widget(para, provider_chunks[i]);
             }
             
+            // Render delta field if shown
+            if app.show_delta {
+                let delta_chunk_idx = if app.show_delta { 1 } else { 1 };
+                let delta_block = Block::default()
+                    .title("Response Differences (powered by Gemini)")
+                    .borders(Borders::ALL)
+                    .border_style(Style::default().fg(Color::Magenta));
+                
+                let delta_para = Paragraph::new(app.delta_text.clone())
+                    .block(delta_block)
+                    .wrap(Wrap { trim: true })
+                    .style(Style::default().fg(Color::White));
+                f.render_widget(delta_para, main_chunks[delta_chunk_idx]);
+            }
+            
             // Render shared input box
             let input_block = Block::default()
                 .title("Shared Input (Enter: send, ←→: select column, ↑↓: scroll, Esc/q: quit)")
@@ -243,18 +362,33 @@ pub async fn run_tui(provider_states: HashMap<&'static str, ProviderState>) -> i
             let input_para = Paragraph::new(format!("> {}", app.shared_input))
                 .block(input_block)
                 .style(Style::default().fg(Color::White));
-            f.render_widget(input_para, main_chunks[1]);
+            let input_chunk_idx = if app.show_delta { 2 } else { 1 };
+            f.render_widget(input_para, main_chunks[input_chunk_idx]);
             
             // Set cursor position in input field
             f.set_cursor(
-                main_chunks[1].x + app.shared_input.len() as u16 + 3, // +3 for "> " prefix and border
-                main_chunks[1].y + 1 // +1 for border
+                main_chunks[input_chunk_idx].x + app.shared_input.len() as u16 + 3, // +3 for "> " prefix and border
+                main_chunks[input_chunk_idx].y + 1 // +1 for border
             );
         })?;
 
         // Check for async responses
-        while let Ok((provider_idx, response)) = rx.try_recv() {
-            app.handle_response(provider_idx, response);
+        let mut responses_received = 0;
+        while let Ok(response_type) = rx.try_recv() {
+            match response_type {
+                ResponseType::Provider(provider_idx, response) => {
+                    app.handle_response(provider_idx, response);
+                    responses_received += 1;
+                }
+                ResponseType::Delta(delta_text) => {
+                    app.handle_delta_response(delta_text);
+                }
+            }
+        }
+        
+        // Check if we should generate delta after receiving responses
+        if responses_received > 0 {
+            app.generate_delta_with_channel(tx.clone());
         }
         
         if event::poll(std::time::Duration::from_millis(100))? {
