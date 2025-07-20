@@ -81,7 +81,7 @@ impl AppState {
         for (idx, provider) in self.providers.iter_mut().enumerate() {
             if let Some(_client) = &provider.client {
                 provider.chat_history.push(format!("You: {}", prompt));
-                provider.chat_history.push("AI: Thinking...".to_string());
+                provider.chat_history.push(format!("{}: Thinking...", provider.name));
                 
                 // Get new client for the async task (since we can't move the trait object)
                 let config = ClientConfig::default();
@@ -108,9 +108,10 @@ impl AppState {
     
     pub fn handle_response(&mut self, provider_idx: usize, response: String) {
         if let Some(provider) = self.providers.get_mut(provider_idx) {
+            let provider_name = provider.name;
             // Replace "Thinking..." with actual response
             if let Some(last) = provider.chat_history.last_mut() {
-                *last = format!("AI: {}", response);
+                *last = format!("{}: {}", provider_name, response);
             }
         }
     }
