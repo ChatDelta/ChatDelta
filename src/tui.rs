@@ -39,8 +39,8 @@ pub struct Provider {
 pub struct AppState {
     pub providers: Vec<Provider>,
     pub shared_input: String,
-    pub selected_column: usize,
-    pub scroll_positions: Vec<usize>,
+    pub selected_column: usize, // 0-2 for providers, 3 for delta field
+    pub scroll_positions: Vec<usize>, // index 3 will be for delta field
     pub delta_text: String,
     pub show_delta: bool,
 }
@@ -61,19 +61,34 @@ impl AppState {
             providers.push(Provider {
                 name,
                 state,
-                chat_history: vec![format!("Welcome to {name} chat!")],
+                chat_history: vec![Self::create_welcome_message(name)],
                 client,
             });
         }
-        let scroll_positions = vec![0; providers.len()];
+        let scroll_positions = vec![0; providers.len() + 1]; // +1 for delta field
         Self { 
             providers, 
             shared_input: String::new(),
             selected_column: 0,
             scroll_positions,
-            delta_text: String::new(),
-            show_delta: false,
+            delta_text: "🔍 Differences between AI responses will appear here after you send a query to multiple providers".to_string(),
+            show_delta: true,
         }
+    }
+    
+    fn create_welcome_message(name: &str) -> String {
+        match name {
+            "ChatGPT" => {
+                "🤖 Welcome to ChatGPT!\n\n🧠 Model: GPT-4o\n🏢 Provider: OpenAI\n\n✨ Ready to assist with your queries!\nI excel at general knowledge, coding, writing, and analysis.\n\n💡 Pro tip: I can help with complex reasoning tasks!"
+            },
+            "Gemini" => {
+                "🌟 Welcome to Gemini!\n\n🚀 Model: Gemini-1.5-Pro\n🏢 Provider: Google\n\n🎯 Ready for action!\nI'm great at multimodal tasks, long context understanding, and creative problem-solving.\n\n🔍 Fun fact: I can analyze images, code, and vast amounts of text!"
+            },
+            "Claude" => {
+                "🎭 Welcome to Claude!\n\n🧬 Model: Claude-3.5-Sonnet\n🏢 Provider: Anthropic\n\n👋 Hello there!\nI'm designed to be helpful, harmless, and honest. I excel at analysis, writing, coding, and thoughtful conversation.\n\n📚 I love diving deep into complex topics!"
+            },
+            _ => "🤖 Welcome to AI Chat!\n\nReady to help with your questions!"
+        }.to_string()
     }
     
     fn create_provider_client(name: &str, config: &ClientConfig) -> Option<Box<dyn AiClient>> {
@@ -215,15 +230,17 @@ impl AppState {
     }
     
     pub fn select_previous_column(&mut self) {
-        if self.selected_column > 0 {
+        let total_sections = self.providers.len() + 1; // +1 for delta field
+        if self.selected_column == 0 {
+            self.selected_column = total_sections - 1; // Wrap to last section (delta field)
+        } else {
             self.selected_column -= 1;
         }
     }
     
     pub fn select_next_column(&mut self) {
-        if self.selected_column < self.providers.len() - 1 {
-            self.selected_column += 1;
-        }
+        let total_sections = self.providers.len() + 1; // +1 for delta field
+        self.selected_column = (self.selected_column + 1) % total_sections;
     }
     
     pub fn scroll_up(&mut self) {
@@ -236,11 +253,25 @@ impl AppState {
     
     pub fn scroll_down(&mut self) {
         if let Some(scroll_pos) = self.scroll_positions.get_mut(self.selected_column) {
-            if let Some(provider) = self.providers.get(self.selected_column) {
-                let max_scroll = provider.chat_history.len().saturating_sub(1);
-                if *scroll_pos < max_scroll {
-                    *scroll_pos += 1;
+            let max_scroll = if self.selected_column < self.providers.len() {
+                // Provider column
+                if let Some(provider) = self.providers.get(self.selected_column) {
+                    let total_lines: usize = provider.chat_history
+                        .iter()
+                        .flat_map(|msg| msg.lines())
+                        .count();
+                    total_lines.saturating_sub(25) // Max visible lines is 25
+                } else {
+                    0
                 }
+            } else {
+                // Delta field
+                let total_lines = self.delta_text.lines().count();
+                total_lines.saturating_sub(4) // Visible lines in delta field
+            };
+            
+            if *scroll_pos < max_scroll {
+                *scroll_pos += 1;
             }
         }
     }
@@ -263,22 +294,15 @@ pub async fn run_tui(provider_states: HashMap<&'static str, ProviderState>) -> i
         terminal.draw(|f| {
             let size = f.size();
             
-            // Split into main area, delta area (if shown), and input area
-            let main_chunks = if app.show_delta {
-                Layout::default()
-                    .direction(Direction::Vertical)
-                    .constraints([
-                        Constraint::Min(0),           // Main provider columns
-                        Constraint::Length(6),        // Delta field
-                        Constraint::Length(3)         // Input field
-                    ])
-                    .split(size)
-            } else {
-                Layout::default()
-                    .direction(Direction::Vertical)
-                    .constraints([Constraint::Min(0), Constraint::Length(3)])
-                    .split(size)
-            };
+            // Split into main area, delta area, and input area
+            let main_chunks = Layout::default()
+                .direction(Direction::Vertical)
+                .constraints([
+                    Constraint::Min(0),           // Main provider columns
+                    Constraint::Length(6),        // Delta field
+                    Constraint::Length(3)         // Input field
+                ])
+                .split(size);
             
             // Split main area into 3 columns
             let provider_chunks = Layout::default()
@@ -317,14 +341,32 @@ pub async fn run_tui(provider_states: HashMap<&'static str, ProviderState>) -> i
 
                 let chat = if provider.state == ProviderState::Enabled {
                     let scroll_pos = app.scroll_positions.get(i).copied().unwrap_or(0);
-                    let visible_lines: Vec<&str> = provider.chat_history
+                    let all_lines: Vec<&str> = provider.chat_history
                         .iter()
                         .flat_map(|msg| msg.lines())
-                        .skip(scroll_pos)
                         .collect();
-                    visible_lines.join("\n")
+                    
+                    // Apply scrolling and limit visible lines
+                    let visible_lines: Vec<&str> = all_lines
+                        .iter()
+                        .skip(scroll_pos)
+                        .take(25) // Show max 25 lines at once
+                        .copied()
+                        .collect();
+                    
+                    let mut content = visible_lines.join("\n");
+                    
+                    // Add scroll indicators
+                    if scroll_pos > 0 {
+                        content = format!("⬆️ (scroll up for more)\n{}", content);
+                    }
+                    if scroll_pos + visible_lines.len() < all_lines.len() {
+                        content = format!("{}\n⬇️ (scroll down for more)", content);
+                    }
+                    
+                    content
                 } else {
-                    "API key missing. Set environment variable to enable.".to_string()
+                    "🔒 API key missing\n\nSet the appropriate environment variable to enable this provider:\n\n• CHATGPT_API_KEY for ChatGPT\n• GEMINI_API_KEY for Gemini\n• CLAUDE_API_KEY for Claude".to_string()
                 };
                 
                 let para = Paragraph::new(chat)
@@ -338,37 +380,74 @@ pub async fn run_tui(provider_states: HashMap<&'static str, ProviderState>) -> i
                 f.render_widget(para, provider_chunks[i]);
             }
             
-            // Render delta field if shown
-            if app.show_delta {
-                let delta_chunk_idx = if app.show_delta { 1 } else { 1 };
-                let delta_block = Block::default()
-                    .title("Response Differences (powered by Gemini)")
-                    .borders(Borders::ALL)
-                    .border_style(Style::default().fg(Color::Magenta));
+            // Render delta field
+            let delta_field_selected = app.selected_column == app.providers.len();
+            let delta_title = if delta_field_selected {
+                "► 🔍 Response Differences (powered by Gemini) ◄"
+            } else {
+                "🔍 Response Differences (powered by Gemini)"
+            };
+            
+            let delta_block = Block::default()
+                .title(Span::styled(
+                    delta_title,
+                    Style::default().fg(if delta_field_selected { Color::Yellow } else { Color::Magenta }),
+                ))
+                .borders(Borders::ALL)
+                .border_style(if delta_field_selected {
+                    Style::default().fg(Color::Yellow)
+                } else {
+                    Style::default().fg(Color::Magenta)
+                });
+            
+            // Handle scrolling for delta field
+            let delta_content = {
+                let scroll_pos = app.scroll_positions.get(app.providers.len()).copied().unwrap_or(0);
+                let all_lines: Vec<&str> = app.delta_text.lines().collect();
                 
-                let delta_para = Paragraph::new(app.delta_text.clone())
-                    .block(delta_block)
-                    .wrap(Wrap { trim: true })
-                    .style(Style::default().fg(Color::White));
-                f.render_widget(delta_para, main_chunks[delta_chunk_idx]);
-            }
+                let visible_lines: Vec<&str> = all_lines
+                    .iter()
+                    .skip(scroll_pos)
+                    .take(4) // Show max 4 lines in delta field
+                    .copied()
+                    .collect();
+                
+                let mut content = visible_lines.join("\n");
+                
+                // Add scroll indicators for delta field when selected
+                if delta_field_selected {
+                    if scroll_pos > 0 {
+                        content = format!("⬆️ (scroll up)\n{}", content);
+                    }
+                    if scroll_pos + visible_lines.len() < all_lines.len() {
+                        content = format!("{}\n⬇️ (scroll down)", content);
+                    }
+                }
+                
+                content
+            };
+            
+            let delta_para = Paragraph::new(delta_content)
+                .block(delta_block)
+                .wrap(Wrap { trim: true })
+                .style(Style::default().fg(Color::White));
+            f.render_widget(delta_para, main_chunks[1]);
             
             // Render shared input box
             let input_block = Block::default()
-                .title("Shared Input (Enter: send, ←→: select column, ↑↓: scroll, Esc/q: quit)")
+                .title("Shared Input (Enter: send, ←→: cycle sections, ↑↓: scroll, Esc: quit)")
                 .borders(Borders::ALL)
                 .border_style(Style::default().fg(Color::Yellow));
             
             let input_para = Paragraph::new(format!("> {}", app.shared_input))
                 .block(input_block)
                 .style(Style::default().fg(Color::White));
-            let input_chunk_idx = if app.show_delta { 2 } else { 1 };
-            f.render_widget(input_para, main_chunks[input_chunk_idx]);
+            f.render_widget(input_para, main_chunks[2]);
             
             // Set cursor position in input field
             f.set_cursor(
-                main_chunks[input_chunk_idx].x + app.shared_input.len() as u16 + 3, // +3 for "> " prefix and border
-                main_chunks[input_chunk_idx].y + 1 // +1 for border
+                main_chunks[2].x + app.shared_input.len() as u16 + 3, // +3 for "> " prefix and border
+                main_chunks[2].y + 1 // +1 for border
             );
         })?;
 
@@ -394,7 +473,7 @@ pub async fn run_tui(provider_states: HashMap<&'static str, ProviderState>) -> i
         if event::poll(std::time::Duration::from_millis(100))? {
             match event::read()? {
                 Event::Key(key) => match key.code {
-                    KeyCode::Char('q') | KeyCode::Esc => {
+                    KeyCode::Esc => {
                         disable_raw_mode()?;
                         execute!(terminal.backend_mut(), cursor::Show)?;
                         terminal.show_cursor()?;
