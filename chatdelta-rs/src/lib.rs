@@ -244,14 +244,16 @@ impl AiClient for ClaudeClient {
         let response = self.client
             .post("https://api.anthropic.com/v1/messages")
             .header("x-api-key", &self.api_key)
-            .header("Content-Type", "application/json")
             .header("anthropic-version", "2023-06-01")
+            .header("Content-Type", "application/json")
             .json(&request)
             .send()
             .await?;
 
         if !response.status().is_success() {
-            return Err(format!("Claude API error: {}", response.status()).into());
+            let status = response.status();
+            let error_text = response.text().await.unwrap_or_else(|_| "Unknown error".to_string());
+            return Err(format!("Claude API error: {} - {}", status, error_text).into());
         }
 
         let claude_response: ClaudeResponse = response.json().await?;
