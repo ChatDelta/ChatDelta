@@ -16,6 +16,7 @@ use crossterm::cursor;
 use std::io;
 use chatdelta::{create_client, AiClient, ClientConfig};
 use tokio::sync::mpsc;
+use crate::logger::Logger;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ProviderState {
@@ -43,6 +44,7 @@ pub struct AppState {
     pub scroll_positions: Vec<usize>, // index 3 will be for delta field
     pub delta_text: String,
     pub show_delta: bool,
+    pub logger: Logger,
 }
 
 impl AppState {
@@ -73,6 +75,7 @@ impl AppState {
             scroll_positions,
             delta_text: "🔍 Differences between AI responses will appear here after you send a query to multiple providers".to_string(),
             show_delta: true,
+            logger: Logger::new(),
         }
     }
     
@@ -108,10 +111,17 @@ impl AppState {
     
     pub fn send_to_active_providers(&mut self, prompt: &str, tx: mpsc::UnboundedSender<ResponseType>) {
         let prompt = prompt.to_string();
+        
+        // Log the prompt
+        self.logger.log_prompt(&prompt);
+        
         for (idx, provider) in self.providers.iter_mut().enumerate() {
             if let Some(_client) = &provider.client {
                 provider.chat_history.push(format!("You: {}", prompt));
                 provider.chat_history.push(format!("{}: Thinking...", provider.name));
+                
+                // Start timer for this provider
+                self.logger.start_provider_timer(provider.name);
                 
                 // Get new client for the async task (since we can't move the trait object)
                 let config = ClientConfig::default();
@@ -139,6 +149,11 @@ impl AppState {
     pub fn handle_response(&mut self, provider_idx: usize, response: String) {
         if let Some(provider) = self.providers.get_mut(provider_idx) {
             let provider_name = provider.name;
+            
+            // Log the response
+            let is_error = response.starts_with("Error:");
+            self.logger.log_provider_response(provider_name, &response, is_error);
+            
             // Replace "Thinking..." with actual response
             if let Some(last) = provider.chat_history.last_mut() {
                 *last = format!("{}: {}", provider_name, response);
@@ -226,6 +241,9 @@ impl AppState {
     }
     
     pub fn handle_delta_response(&mut self, delta: String) {
+        // Log the delta analysis
+        self.logger.log_delta_analysis(&delta);
+        
         self.delta_text = delta;
     }
     
@@ -510,5 +528,17 @@ pub async fn run_tui(provider_states: HashMap<&'static str, ProviderState>) -> i
             }
         }
     }
+    
+    // Save conversation logs before exiting
+    app.logger.finalize_conversation();
+    match app.logger.save() {
+        Ok(path) => {
+            println!("\n📝 Conversation saved to: {}", path.display());
+        }
+        Err(e) => {
+            eprintln!("\n⚠️  Failed to save conversation log: {}", e);
+        }
+    }
+    
     Ok(())
 }

@@ -26,3 +26,7 @@ serde_json = "1"
 # TUI dependencies for ncurses-style terminal UI
 crossterm = "0.27"
 tui = { version = "0.19", default-features = false, features = ["crossterm"] }
+# Logging dependencies
+chrono = { version = "0.4", features = ["serde"] }
+uuid = { version = "1.0", features = ["v4", "serde"] }
+dirs = "5.0"
