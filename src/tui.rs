@@ -14,7 +14,8 @@ use crossterm::terminal::{disable_raw_mode, enable_raw_mode, Clear, ClearType};
 use crossterm::execute;
 use crossterm::cursor;
 use std::io;
-use chatdelta::{create_client, AiClient, ClientConfig};
+use chatdelta::{create_client, AiClient, ClientConfig, ClientConfigBuilder};
+use std::time::Duration;
 use tokio::sync::mpsc;
 use crate::logger::Logger;
 
@@ -50,7 +51,11 @@ pub struct AppState {
 impl AppState {
     pub fn new(provider_states: HashMap<&'static str, ProviderState>) -> Self {
         let mut providers = Vec::new();
-        let config = ClientConfig::default();
+        // Use the new ClientConfigBuilder from v0.4.0
+        let config = ClientConfigBuilder::default()
+            .timeout(Duration::from_secs(30))
+            .retries(3)
+            .build();
         
         for &name in ["ChatGPT", "Gemini", "Claude"].iter() {
             let state = *provider_states.get(name).unwrap_or(&ProviderState::Disabled);
@@ -124,7 +129,11 @@ impl AppState {
                 self.logger.start_provider_timer(provider.name);
                 
                 // Get new client for the async task (since we can't move the trait object)
-                let config = ClientConfig::default();
+                // Use the new ClientConfigBuilder from v0.4.0
+                let config = ClientConfigBuilder::default()
+                    .timeout(Duration::from_secs(30))
+                    .retries(3)
+                    .build();
                 if let Some(new_client) = Self::create_provider_client(provider.name, &config) {
                     let prompt_clone = prompt.clone();
                     let tx_clone = tx.clone();
@@ -201,7 +210,11 @@ impl AppState {
             
         if responses.len() >= 2 {
             // Create a Gemini client for delta analysis
-            let config = ClientConfig::default();
+            // Use the new ClientConfigBuilder from v0.4.0
+            let config = ClientConfigBuilder::default()
+                .timeout(Duration::from_secs(30))
+                .retries(3)
+                .build();
             if let Some(gemini_client) = Self::create_provider_client("Gemini", &config) {
                 let responses_clone = responses.clone();
                 
