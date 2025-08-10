@@ -219,14 +219,36 @@ struct ClaudeMessage {
     content: String,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Debug)]
 struct ClaudeResponse {
     content: Vec<ClaudeContent>,
+    #[serde(default)]
+    id: Option<String>,
+    #[serde(default)]
+    model: Option<String>,
+    #[serde(default)]
+    role: Option<String>,
+    #[serde(default)]
+    stop_reason: Option<String>,
+    #[serde(default)]
+    stop_sequence: Option<String>,
+    #[serde(rename = "type", default)]
+    response_type: Option<String>,
+    #[serde(default)]
+    usage: Option<ClaudeUsage>,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Debug)]
+struct ClaudeUsage {
+    input_tokens: Option<u32>,
+    output_tokens: Option<u32>,
+}
+
+#[derive(Deserialize, Debug)]
 struct ClaudeContent {
-    text: String,
+    text: Option<String>,
+    #[serde(rename = "type", default)]
+    content_type: Option<String>,
 }
 
 #[async_trait]
@@ -256,10 +278,12 @@ impl AiClient for ClaudeClient {
             return Err(format!("Claude API error: {} - {}", status, error_text).into());
         }
 
-        let claude_response: ClaudeResponse = response.json().await?;
+        let response_text = response.text().await?;
+        let claude_response: ClaudeResponse = serde_json::from_str(&response_text)
+            .map_err(|e| format!("Failed to parse Claude response: {} - Response: {}", e, response_text))?;
         let content = claude_response.content
             .first()
-            .map(|content| content.text.clone())
+            .and_then(|content| content.text.clone())
             .unwrap_or_else(|| "No response".to_string());
 
         Ok(content)

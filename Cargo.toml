@@ -1,6 +1,6 @@
 [package]
 name = "chatdelta-base"
-version = "0.3.0"
+version = "0.3.1"
 edition = "2021"
 description = "ChatDelta base repository - includes both CLI and library components"
 license = "MIT"
