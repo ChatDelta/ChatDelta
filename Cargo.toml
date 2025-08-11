@@ -1,6 +1,6 @@
 [package]
 name = "chatdelta-base"
-version = "0.3.2"
+version = "0.3.3"
 edition = "2021"
 description = "ChatDelta base repository - includes both CLI and library components"
 license = "MIT"
@@ -18,7 +18,7 @@ name = "chatdelta_base"
 path = "src/lib.rs"
 
 [dependencies]
-chatdelta = "0.4.1"
+chatdelta = "0.5.0"
 clap = { version = "4", features = ["derive"] }
 tokio = { version = "1", features = ["full"] }
 serde = { version = "1", features = ["derive"] }
