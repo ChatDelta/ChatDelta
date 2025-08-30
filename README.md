@@ -13,6 +13,8 @@ At the bottom of the screen is a shared input box. Type a message and press <kbd
 ## Features
 
 - Side-by-side chat with OpenAI, Gemini and Claude
+- **Streaming responses**: Watch AI responses appear in real-time (press F2 to toggle)
+- **Delta analysis**: Automatic comparison of AI responses using Gemini
 - Columns automatically disable when the API key is missing
 - Shared input so you can ask all providers the same question
 - Asynchronous responses update the display while each AI thinks
@@ -68,7 +70,15 @@ OPENAI_API_KEY=... GEMINI_API_KEY=... ANTHROPIC_API_KEY=... ./target/release/cha
 
 If a key is missing, the corresponding column is dimmed and instructs you to set the variable.
 
-Type your prompt in the input box and press <kbd>Enter</kbd> to send it. Press <kbd>Esc</kbd> or `q` to exit the interface.
+Type your prompt in the input box and press <kbd>Enter</kbd> to send it.
+
+### Keyboard Shortcuts
+
+- <kbd>Enter</kbd> - Send prompt to all active providers
+- <kbd>F2</kbd> - Toggle streaming mode on/off
+- <kbd>←</kbd> / <kbd>→</kbd> - Cycle between provider columns
+- <kbd>↑</kbd> / <kbd>↓</kbd> - Scroll within selected column
+- <kbd>Esc</kbd> or <kbd>q</kbd> - Exit the interface
 
 ## Testing
 

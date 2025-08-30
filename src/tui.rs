@@ -14,7 +14,7 @@ use crossterm::terminal::{disable_raw_mode, enable_raw_mode, Clear, ClearType};
 use crossterm::execute;
 use crossterm::cursor;
 use std::io;
-use chatdelta::{create_client, AiClient, ClientConfig, ClientConfigBuilder};
+use chatdelta::{create_client, AiClient, ClientConfig, ClientConfigBuilder, StreamChunk};
 use std::time::Duration;
 use tokio::sync::mpsc;
 use crate::logger::Logger;
@@ -29,6 +29,7 @@ pub enum ProviderState {
 pub enum ResponseType {
     Provider(usize, String),  // (provider_index, response)
     Delta(String),            // delta analysis
+    StreamChunk(usize, String, bool),  // (provider_index, chunk, is_final)
 }
 
 pub struct Provider {
@@ -46,6 +47,7 @@ pub struct AppState {
     pub delta_text: String,
     pub show_delta: bool,
     pub logger: Logger,
+    pub use_streaming: bool,  // Toggle for streaming responses
 }
 
 impl AppState {
@@ -81,6 +83,7 @@ impl AppState {
             delta_text: "🔍 Differences between AI responses will appear here after you send a query to multiple providers".to_string(),
             show_delta: true,
             logger: Logger::new(),
+            use_streaming: true,  // Enable streaming by default
         }
     }
     
@@ -137,17 +140,43 @@ impl AppState {
                 if let Some(new_client) = Self::create_provider_client(provider.name, &config) {
                     let prompt_clone = prompt.clone();
                     let tx_clone = tx.clone();
+                    let use_streaming = self.use_streaming;
                     
                     // Spawn async task for each provider
                     tokio::spawn(async move {
-                        let response = match new_client.send_prompt(&prompt_clone).await {
-                            Ok(resp) => resp,
-                            Err(e) => format!("Error: {}", e),
-                        };
-                        
-                        // Send result back
-                        if tx_clone.send(ResponseType::Provider(idx, response)).is_err() {
-                            eprintln!("Failed to send response");
+                        if use_streaming && new_client.supports_streaming() {
+                            // Use streaming API
+                            let (stream_tx, mut stream_rx) = mpsc::unbounded_channel::<StreamChunk>();
+                            
+                            // Spawn task to handle streaming
+                            let tx_clone2 = tx_clone.clone();
+                            let idx_clone = idx;
+                            tokio::spawn(async move {
+                                while let Some(chunk) = stream_rx.recv().await {
+                                    if tx_clone2.send(ResponseType::StreamChunk(idx_clone, chunk.content, chunk.finished)).is_err() {
+                                        eprintln!("Failed to send stream chunk");
+                                        break;
+                                    }
+                                }
+                            });
+                            
+                            // Start streaming
+                            if let Err(e) = new_client.send_prompt_streaming(&prompt_clone, stream_tx).await {
+                                if tx_clone.send(ResponseType::Provider(idx, format!("Error: {}", e))).is_err() {
+                                    eprintln!("Failed to send error response");
+                                }
+                            }
+                        } else {
+                            // Use non-streaming API
+                            let response = match new_client.send_prompt(&prompt_clone).await {
+                                Ok(resp) => resp,
+                                Err(e) => format!("Error: {}", e),
+                            };
+                            
+                            // Send result back
+                            if tx_clone.send(ResponseType::Provider(idx, response)).is_err() {
+                                eprintln!("Failed to send response");
+                            }
                         }
                     });
                 }
@@ -170,6 +199,31 @@ impl AppState {
         }
         
         // Note: Delta generation will be triggered from main loop after all responses are received
+    }
+    
+    pub fn handle_stream_chunk(&mut self, provider_idx: usize, chunk: String, is_final: bool) {
+        if let Some(provider) = self.providers.get_mut(provider_idx) {
+            let provider_name = provider.name;
+            
+            // Update the last message with streaming content
+            if let Some(last) = provider.chat_history.last_mut() {
+                if last.contains("Thinking...") {
+                    // First chunk - replace "Thinking..." with the actual response
+                    *last = format!("{}: {}", provider_name, chunk);
+                } else if !is_final {
+                    // Append chunk to existing response
+                    last.push_str(&chunk);
+                }
+                
+                // If this is the final chunk, log the complete response
+                if is_final {
+                    let full_response = last.strip_prefix(&format!("{}: ", provider_name))
+                        .unwrap_or(last)
+                        .to_string();
+                    self.logger.log_provider_response(provider_name, &full_response, false);
+                }
+            }
+        }
     }
     
     
@@ -465,8 +519,10 @@ pub async fn run_tui(provider_states: HashMap<&'static str, ProviderState>) -> i
             f.render_widget(delta_para, main_chunks[1]);
             
             // Render shared input box
+            let streaming_status = if app.use_streaming { " [STREAMING ON]" } else { " [STREAMING OFF]" };
+            let title = format!("Shared Input (Enter: send, ←→: cycle, ↑↓: scroll, F2: toggle streaming, Esc: quit){}", streaming_status);
             let input_block = Block::default()
-                .title("Shared Input (Enter: send, ←→: cycle sections, ↑↓: scroll, Esc: quit)")
+                .title(title)
                 .borders(Borders::ALL)
                 .border_style(Style::default().fg(Color::Yellow));
             
@@ -492,6 +548,12 @@ pub async fn run_tui(provider_states: HashMap<&'static str, ProviderState>) -> i
                 }
                 ResponseType::Delta(delta_text) => {
                     app.handle_delta_response(delta_text);
+                }
+                ResponseType::StreamChunk(provider_idx, chunk, is_final) => {
+                    app.handle_stream_chunk(provider_idx, chunk, is_final);
+                    if is_final {
+                        responses_received += 1;
+                    }
                 }
             }
         }
@@ -527,6 +589,10 @@ pub async fn run_tui(provider_states: HashMap<&'static str, ProviderState>) -> i
                     }
                     KeyCode::Backspace => {
                         app.shared_input.pop();
+                    }
+                    KeyCode::F(2) => {
+                        // Toggle streaming mode
+                        app.use_streaming = !app.use_streaming;
                     }
                     KeyCode::Enter => {
                         let msg = app.shared_input.trim().to_string();
