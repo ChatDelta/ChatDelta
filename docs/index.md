@@ -1,52 +1,112 @@
-# ChatDelta - Multi-AI Platform
+# ChatDelta
 
-**ChatDelta** is a comprehensive suite of tools and libraries for connecting to multiple AI APIs with a unified interface. Whether you need a terminal interface, a library for your application, or a command-line tool, ChatDelta has you covered.
+Query OpenAI, Gemini, and Claude in parallel — compare responses, run structured debates, and stream output from a single command.
 
-## 🚀 Our Ecosystem
+## CLI
 
-### Terminal Interface
-**[ChatDelta TUI](https://github.com/ChatDelta/ChatDelta)** - Side-by-side chat with OpenAI, Gemini, and Claude
-- Real-time terminal interface with three columns
-- Asynchronous responses from multiple AI providers
-- Shared input for consistent questioning across models
+```bash
+cargo install chatdelta-cli
+```
 
-### Libraries & SDKs
+Set at least one API key:
 
-#### JavaScript/TypeScript
-**[chatdelta](https://www.npmjs.com/package/chatdelta)** - NPM package with TypeScript support
-- Unified interface for OpenAI, Gemini, and Claude APIs
-- Parallel execution and response summarization
-- Built-in error handling and retry logic
+```bash
+export OPENAI_API_KEY="..."
+export GEMINI_API_KEY="..."
+export ANTHROPIC_API_KEY="..."
+```
 
-#### Rust
-**[chatdelta](https://crates.io/crates/chatdelta)** - Rust crate for AI API integration
-- Async/await with tokio runtime
-- Comprehensive error handling and retry logic
-- Streaming responses and conversation support
+Run a query across all configured models:
 
-#### Go
-**[chatdelta-go](https://pkg.go.dev/github.com/chatdelta/chatdelta-go)** - Go library (in development)
-- Full Go type safety with comprehensive interfaces
-- Streaming support and conversation handling
-- Environment integration and parallel execution
+```bash
+chatdelta "What are the tradeoffs of microservices?"
+```
 
-### Command Line Tools
-**ChatDelta CLI** - Command-line tool for querying multiple AI models
-- Parallel queries with optional response summarization
-- Multiple output formats (text, JSON, markdown)
-- Built-in connectivity testing and model listing
+Stream a single model's response as tokens arrive:
 
-## 🎯 How ChatDelta Works
+```bash
+chatdelta --only claude --stream "Explain Rust's borrow checker"
+```
 
-Below is a high-level flow showing how ChatDelta connects to multiple AI providers:
+Set a system prompt:
 
-![ChatDelta flow](assets/diagram.svg)
+```bash
+chatdelta --system-prompt "You are a skeptical code reviewer" "Review this approach: ..."
+```
 
-## 🛠️ Quick Start
+Show token usage and latency per model:
 
-### For Developers
+```bash
+chatdelta --show-usage "Summarize the CAP theorem"
+```
 
-#### JavaScript/Node.js
+### Debate Mode
+
+Run a structured debate between two models, with a third as moderator:
+
+```bash
+chatdelta debate \
+  --model-a openai:gpt-4o \
+  --model-b anthropic:claude-sonnet-4-6 \
+  --moderator google:gemini-2.5-flash \
+  --rounds 1 \
+  --prompt "LLMs will make software engineers less productive over the next five years" \
+  --export debate.md
+```
+
+The moderator produces a structured report: strongest points from each side, shared conclusions, unresolved disagreements, and claims requiring verification.
+
+[See an example debate transcript](https://github.com/ChatDelta/chatdelta-cli/blob/main/docs/debate-example.md)
+
+### Interactive Conversation
+
+```bash
+chatdelta --conversation --system-prompt "You are a Rust expert"
+```
+
+Save and resume sessions:
+
+```bash
+chatdelta --conversation --save-conversation session.json
+chatdelta --conversation --load-conversation session.json
+```
+
+## Rust Library
+
+```toml
+[dependencies]
+chatdelta = "0.8"
+```
+
+```rust
+use chatdelta::{create_client, execute_parallel, ClientConfig};
+
+let config = ClientConfig::builder()
+    .system_message("You are a helpful assistant")
+    .temperature(0.7)
+    .build();
+
+let client = create_client("anthropic", "your-key", "claude-sonnet-4-6", config)?;
+let response = client.send_prompt("Hello, world!").await?;
+```
+
+Parallel execution across models:
+
+```rust
+let results = execute_parallel(clients, "Explain quantum computing").await;
+```
+
+With token metadata:
+
+```rust
+let results = execute_parallel_with_metadata(clients, "Explain quantum computing").await;
+// results include tokens_used, latency_ms, finish_reason per model
+```
+
+[Rust docs on docs.rs](https://docs.rs/chatdelta) · [crates.io](https://crates.io/crates/chatdelta)
+
+## JavaScript/TypeScript
+
 ```bash
 npm install chatdelta
 ```
@@ -54,71 +114,28 @@ npm install chatdelta
 ```javascript
 import { createClient, executeParallel } from 'chatdelta';
 
-const openai = createClient('openai', process.env.OPENAI_KEY, 'gpt-4');
+const openai = createClient('openai', process.env.OPENAI_KEY, 'gpt-4o');
 const results = await executeParallel([openai], 'Explain quantum computing');
 ```
 
-#### Rust
-```toml
-[dependencies]
-chatdelta = "0.2"
-```
+[NPM package](https://www.npmjs.com/package/chatdelta)
 
-```rust
-use chatdelta::{create_client, ClientConfig};
+## Go
 
-let client = create_client("openai", "your-key", "gpt-4o", config)?;
-let response = client.send_prompt("Hello, world!").await?;
-```
-
-#### Go
 ```bash
 go get github.com/chatdelta/chatdelta-go
 ```
 
 ```go
-client, err := chatdelta.CreateClient("openai", "", "gpt-3.5-turbo", nil)
+client, err := chatdelta.CreateClient("openai", os.Getenv("OPENAI_KEY"), "gpt-4o", nil)
 response, err := client.SendPrompt(context.Background(), "What is AI?")
 ```
 
-### For End Users
+[Go package docs](https://pkg.go.dev/github.com/chatdelta/chatdelta-go) *(in development)*
 
-#### Terminal Interface
-```bash
-git clone https://github.com/ChatDelta/chatdelta.git
-cd chatdelta
-cargo build --release
+## Links
 
-# Set your API keys
-export OPENAI_API_KEY="your-key"
-export GEMINI_API_KEY="your-key"  
-export ANTHROPIC_API_KEY="your-key"
-
-./target/release/chatdelta
-```
-
-## 🌟 Key Features
-
-- **Unified Interface** - Same API across all providers and languages
-- **Parallel Execution** - Query multiple AI models simultaneously
-- **Comprehensive Error Handling** - Detailed error types with retry logic
-- **Streaming Support** - Real-time response streaming where available
-- **Open Source** - MIT licensed with active community development
-- **Cross-Platform** - Works on Windows, macOS, and Linux
-
-## 📚 Documentation
-
-- **Terminal App**: [ChatDelta TUI Documentation](https://github.com/ChatDelta/ChatDelta/blob/main/README.md)
-- **JavaScript SDK**: [NPM Package](https://www.npmjs.com/package/chatdelta)
-- **Rust Library**: [Crates.io Documentation](https://docs.rs/chatdelta)
-- **Go Library**: [Go Package Documentation](https://pkg.go.dev/github.com/chatdelta/chatdelta-go)
-
-## 🤝 Community & Support
-
-- **GitHub**: [ChatDelta Organization](https://github.com/ChatDelta)
-- **Issues**: Report bugs and request features on individual repository issue trackers
-- **License**: MIT License across all projects
-
----
-
-**Ready to get started?** Choose your preferred language or tool above and dive into the comprehensive ChatDelta ecosystem!
+- [GitHub Organization](https://github.com/ChatDelta)
+- [chatdelta-cli](https://github.com/ChatDelta/chatdelta-cli) — the CLI tool
+- [chatdelta-rs](https://github.com/ChatDelta/chatdelta-rs) — the Rust library
+- MIT licensed
