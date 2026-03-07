@@ -31,7 +31,7 @@ chatdelta --only claude --stream "Explain Rust's borrow checker"
 Set a system prompt:
 
 ```bash
-chatdelta --system-prompt "You are a skeptical code reviewer" "Review this approach: ..."
+chatdelta --only claude --system-prompt "You are a Rust expert" "Review this approach: ..."
 ```
 
 Show token usage and latency per model:
@@ -60,15 +60,17 @@ The moderator produces a structured report: strongest points from each side, sha
 
 ### Interactive Conversation
 
+Use `--only` to specify which model you want to talk to:
+
 ```bash
-chatdelta --conversation --system-prompt "You are a Rust expert"
+chatdelta --conversation --only claude --system-prompt "You are a Rust expert"
 ```
 
 Save and resume sessions:
 
 ```bash
-chatdelta --conversation --save-conversation session.json
-chatdelta --conversation --load-conversation session.json
+chatdelta --conversation --only claude --save-conversation session.json
+chatdelta --conversation --only claude --load-conversation session.json
 ```
 
 ## Rust Library
